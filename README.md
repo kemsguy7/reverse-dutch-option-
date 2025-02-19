@@ -1,13 +1,21 @@
-# Sample Hardhat Project
+# Reverse Dutch Auction Swap
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
 
 Try running some of the following tasks:
 
+To Deoly use this 
+
+To test Interaction s
+
+Successfully verified contract ReverseDutchAuctionSwap on the block explorer.
+https://sepolia.basescan.org/address/0x42bE0316B164E9e11404b949d9aba159c5f7C58B#code
+
+Contract verified at 0x42bE0316B164E9e11404b949d9aba159c5f7C58B
+
+npx hardhat run scripts/interact2.ts --network base_sepolia  : To run interaction scripts
+
+npx hardhat run scripts/interact2.ts --network base_sepolia  : To run Deployment scripts
+
 ```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.ts
+npx hardhat test : To Run tests 
 ```
