@@ -20,5 +20,19 @@ A smart contract implementation of a Reverse Dutch Auction mechanism for token s
 
 1. Clone the repository
 2. Install dependencies:
+
+
 ```bash
 npm install
+```
+
+To Test :
+```bash 
+    npx hardhattest
+```
+
+- Interactions
+
+```bash
+npx hardhat run scripts/deploy.ts --network base_sepolia
+npx hardhat run scripts/interactions.ts --network base_sepolia
