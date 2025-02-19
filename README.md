@@ -1,21 +1,24 @@
 # Reverse Dutch Auction Swap
 
+A smart contract implementation of a Reverse Dutch Auction mechanism for token swaps on Base Network.
 
-Try running some of the following tasks:
+## Deployed Contract
 
-To Deoly use this 
+- **Contract Address**: `0x1788Adc2F1749Ac8F5f2A5c724EcB0318EDA7054`
+- **Network**: Base Sepolia Testnet
+- **Explorer**: [View on Basescan](https://sepolia.basescan.org/address/0x1788Adc2F1749Ac8F5f2A5c724EcB0318EDA7054#code)
 
-To test Interaction s
+## Getting Started
 
-Successfully verified contract ReverseDutchAuctionSwap on the block explorer.
-https://sepolia.basescan.org/address/0x42bE0316B164E9e11404b949d9aba159c5f7C58B#code
+### Prerequisites
 
-Contract verified at 0x42bE0316B164E9e11404b949d9aba159c5f7C58B
+- Node.js
+- npm or yarn
+- Hardhat
 
-npx hardhat run scripts/interact2.ts --network base_sepolia  : To run interaction scripts
+### Installation
 
-npx hardhat run scripts/interact2.ts --network base_sepolia  : To run Deployment scripts
-
-```shell
-npx hardhat test : To Run tests 
-```
+1. Clone the repository
+2. Install dependencies:
+```bash
+npm install
