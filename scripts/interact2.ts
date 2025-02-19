@@ -1,3 +1,144 @@
+// import { ethers } from "hardhat";
+// import fs from "fs";
+
+// // Utility function to get deployed addresses
+// async function getDeployedAddresses() {
+//   const network = process.env.HARDHAT_NETWORK || "base_sepolia";
+//   const deploymentPath = `./deployments/${network}.json`;
+  
+//   if (!fs.existsSync(deploymentPath)) {
+//     throw new Error(`No deployment found for network ${network}`);
+//   }
+  
+//   return JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
+// }
+
+// async function createAuction() {
+//   try {
+//     // Get deployed contract addresses
+//     const { testToken: tokenAddress, auction: auctionAddress } = await getDeployedAddresses();
+//     console.log("Contract addresses:", {
+//       tokenAddress,
+//       auctionAddress
+//     });
+
+//     // Get contract instances
+//     const testToken = await ethers.getContractAt("TestToken", tokenAddress);
+//     const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
+
+//     // Auction parameters
+//     const tokenAmount = ethers.parseEther("100"); // 100 tokens
+//     const startPrice = ethers.parseEther("1");    // 1 ETH
+//     const endPrice = ethers.parseEther("0.1");    // 0.1 ETH
+//     const duration = 3600;                        // 1 hour
+
+//     const [owner, seller] = await ethers.getSigners();
+    
+//     // Transfer tokens to seller
+//     console.log("\nTransferring tokens to seller...");
+//     const transferTx = await testToken.transfer(seller.address, tokenAmount);
+//     await transferTx.wait();
+//     console.log("Seller token balance:", await testToken.balanceOf(seller.address));
+
+//     // Approve auction contract
+//     console.log("\nApproving auction contract...");
+//     const approveTx = await testToken.connect(seller).approve(auctionAddress, tokenAmount);
+//     await approveTx.wait();
+//     console.log("Approval completed");
+
+//     // Create auction
+//     console.log("\nCreating auction...");
+//     const tx = await auction.connect(seller).createAuction(
+//       tokenAddress,
+//       tokenAmount,
+//       startPrice,
+//       endPrice,
+//       duration
+//     );
+//     const receipt = await tx.wait();
+//     console.log("Auction created! Transaction:", receipt?.hash);
+
+//     // Get current auction ID
+//     const auctionId = (await auction.getAuctionCount()) - 1;
+//     console.log("Auction ID:", auctionId);
+
+//     return { auctionId, testToken, auction, seller };
+//   } catch (error) {
+//     console.error("Error in createAuction:", error);
+//     throw error;
+//   }
+// }
+
+// async function executeSwap(auctionId: number) {
+//   try {
+//     const { auction: auctionAddress } = await getDeployedAddresses();
+//     const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
+//     const [owner, seller, buyer] = await ethers.getSigners();
+
+//     // Get current price
+//     const currentPrice = await auction.getCurrentPrice(auctionId);
+//     console.log("\nCurrent price:", ethers.formatEther(currentPrice), "ETH");
+
+//     // Execute swap with ETH payment
+//     console.log("\nExecuting swap...");
+//     const tx = await auction.connect(buyer).executeSwap(auctionId, {
+//       value: currentPrice
+//     });
+//     const receipt = await tx.wait();
+//     console.log("Swap executed! Transaction:", receipt?.hash);
+//   } catch (error) {
+//     console.error("Error in executeSwap:", error);
+//     throw error;
+//   }
+// }
+
+// async function checkPrice(auctionId: number) {
+//   try {
+//     const { auction: auctionAddress } = await getDeployedAddresses();
+//     const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
+
+//     const currentPrice = await auction.getCurrentPrice(auctionId);
+//     console.log("\nCurrent auction price:", ethers.formatEther(currentPrice), "ETH");
+//     return currentPrice;
+//   } catch (error) {
+//     console.error("Error in checkPrice:", error);
+//     throw error;
+//   }
+// }
+
+// async function main() {
+//   try {
+//     console.log("Starting auction process...");
+    
+//     // Create auction
+//     const { auctionId } = await createAuction();
+
+//     // Wait for some time to let price decrease
+//     console.log("\nWaiting for price to decrease...");
+//     await new Promise(r => setTimeout(r, 5000));
+
+//     // Check current price
+//     await checkPrice(auctionId);
+
+//     // Execute swap
+//     console.log("\nExecuting swap...");
+//     await executeSwap(auctionId);
+
+//   } catch (error) {
+//     console.error("Error in main:", error);
+//     process.exitCode = 1;
+//   }
+// }
+
+// if (require.main === module) {
+//   main().catch((error) => {
+//     console.error(error);
+//     process.exitCode = 1;
+//   });
+// }
+
+
+
 import { ethers } from "hardhat";
 import fs from "fs";
 
@@ -26,19 +167,32 @@ async function createAuction() {
     const testToken = await ethers.getContractAt("TestToken", tokenAddress);
     const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
 
+    // Get signers
+    const signers = await ethers.getSigners();
+    
+    if (signers.length < 2) {
+      throw new Error("Not enough signers available. Need at least 2 signers.");
+    }
+
+    const [deployer, seller] = signers;
+    console.log("Deployer address:", deployer.address);
+    console.log("Seller address:", seller.address);
+
     // Auction parameters
     const tokenAmount = ethers.parseEther("100"); // 100 tokens
     const startPrice = ethers.parseEther("1");    // 1 ETH
     const endPrice = ethers.parseEther("0.1");    // 0.1 ETH
     const duration = 3600;                        // 1 hour
 
-    const [owner, seller] = await ethers.getSigners();
-    
+    // Check deployer's token balance
+    const deployerBalance = await testToken.balanceOf(deployer.address);
+    console.log("Deployer token balance:", ethers.formatEther(deployerBalance));
+
     // Transfer tokens to seller
     console.log("\nTransferring tokens to seller...");
     const transferTx = await testToken.transfer(seller.address, tokenAmount);
     await transferTx.wait();
-    console.log("Seller token balance:", await testToken.balanceOf(seller.address));
+    console.log("Seller token balance:", ethers.formatEther(await testToken.balanceOf(seller.address)));
 
     // Approve auction contract
     console.log("\nApproving auction contract...");
@@ -73,7 +227,15 @@ async function executeSwap(auctionId: number) {
   try {
     const { auction: auctionAddress } = await getDeployedAddresses();
     const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
-    const [owner, seller, buyer] = await ethers.getSigners();
+    
+    // Get signers
+    const signers = await ethers.getSigners();
+    if (signers.length < 3) {
+      throw new Error("Not enough signers available. Need at least 3 signers.");
+    }
+
+    const [_, __, buyer] = signers;
+    console.log("Buyer address:", buyer.address);
 
     // Get current price
     const currentPrice = await auction.getCurrentPrice(auctionId);
