@@ -28,7 +28,7 @@ npm install
 
 To Test :
 ```bash 
-    npx hardhattest
+    npx hardhat test
 ```
 
 - Interactions
