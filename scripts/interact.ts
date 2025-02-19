@@ -1,129 +1,140 @@
 import { ethers } from "hardhat";
-import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
+import fs from "fs";
 
-// Contract addresses - replace these with your deployed addresses
-const TEST_TOKEN_ADDRESS = "0xD57A482ed1D4C11f14438a31F64fC8E27F897b74";
-const AUCTION_ADDRESS = "0xbE51d2F0037f58901568BfF43c6b56726e246141";
-
-// Auction parameters
-const TOKEN_AMOUNT = ethers.parseEther("100");  // 100 tokens
-const START_PRICE = ethers.parseEther("1");     // 1 ETH
-const END_PRICE = ethers.parseEther("0.1");     // 0.1 ETH
-const DURATION = 3600;                          // 1 hour
-
-async function simulateAuction() {
-  console.log("\n=== Starting Auction Simulation ===");
+// Utility function to get deployed addresses
+async function getDeployedAddresses() {
+  const network = process.env.HARDHAT_NETWORK || "base_sepolia";
+  const deploymentPath = `./deployments/${network}.json`;
   
-  // Get contract instances
-  const testToken = await ethers.getContractAt("TestToken", TEST_TOKEN_ADDRESS);
-  const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", AUCTION_ADDRESS);
-
-  // Get signers
-  const [owner, seller, buyer] = await ethers.getSigners();
-  console.log("Seller address:", seller.address);
-  console.log("Buyer address:", buyer.address);
-
-  // Transfer tokens to seller
-  console.log("\nTransferring tokens to seller...");
-  await testToken.transfer(seller.address, TOKEN_AMOUNT);
-  console.log("Seller token balance:", await testToken.balanceOf(seller.address));
-
-  // Seller approves auction contract
-  console.log("\nApproving auction contract...");
-  await testToken.connect(seller).approve(auction.target, TOKEN_AMOUNT);
-  console.log("Approval completed");
-
-  // Create auction
-  console.log("\nCreating auction...");
-  const createTx = await auction.connect(seller).createAuction(
-    testToken.target,
-    TOKEN_AMOUNT,
-    START_PRICE,
-    END_PRICE,
-    DURATION
-  );
-  await createTx.wait();
-  console.log("Auction created");
-
-  // Get initial price
-  const auctionId = 0;
-  const initialPrice = await auction.getCurrentPrice(auctionId);
-  console.log("\nInitial price:", ethers.formatEther(initialPrice), "ETH");
-
-  // Simulate time passing (15 minutes)
-  console.log("\nAdvancing time by 15 minutes...");
-  await time.increase(900);
-
-  // Get price after 15 minutes
-  const midPrice = await auction.getCurrentPrice(auctionId);
-  console.log("Price after 15 minutes:", ethers.formatEther(midPrice), "ETH");
-
-  // Execute swap
-  console.log("\nExecuting swap...");
-  const swapTx = await auction.connect(buyer).executeSwap(auctionId, {
-    value: midPrice
-  });
-  await swapTx.wait();
-
-  // Check final balances
-  const buyerTokenBalance = await testToken.balanceOf(buyer.address);
-  console.log("\nFinal buyer token balance:", ethers.formatEther(buyerTokenBalance));
+  if (!fs.existsSync(deploymentPath)) {
+    throw new Error(`No deployment found for network ${network}`);
+  }
+  
+  return JSON.parse(fs.readFileSync(deploymentPath, "utf8"));
 }
 
-async function checkPriceIntervals() {
-  console.log("\n=== Checking Price Intervals ===");
-  
-  // Get contract instances
-  const testToken = await ethers.getContractAt("TestToken", TEST_TOKEN_ADDRESS);
-  const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", AUCTION_ADDRESS);
+async function createAuction() {
+  try {
+    // Get deployed contract addresses
+    const { testToken: tokenAddress, auction: auctionAddress } = await getDeployedAddresses();
+    console.log("Contract addresses:", {
+      tokenAddress,
+      auctionAddress
+    });
 
-  // Get signers
-  const [owner, seller] = await ethers.getSigners();
+    // Get contract instances
+    const testToken = await ethers.getContractAt("TestToken", tokenAddress);
+    const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
 
-  // Setup new auction
-  await testToken.transfer(seller.address, TOKEN_AMOUNT);
-  await testToken.connect(seller).approve(auction.target, TOKEN_AMOUNT);
-  await auction.connect(seller).createAuction(
-    testToken.target,
-    TOKEN_AMOUNT,
-    START_PRICE,
-    END_PRICE,
-    DURATION
-  );
+    // Get signer
+    const [signer] = await ethers.getSigners();
+    console.log("Signer address:", signer.address);
 
-  // Check prices at different intervals
-  const timeIntervals = [0, 900, 1800, 2700, 3600]; // 0, 15, 30, 45, 60 minutes
-  const auctionId = await auction.getAuctionCount() - 1;
+    // Auction parameters
+    const tokenAmount = ethers.parseEther("100"); // 100 tokens
+    const startPrice = ethers.parseEther("1");    // 1 ETH
+    const endPrice = ethers.parseEther("0.1");    // 0.1 ETH
+    const duration = 3600;                        // 1 hour
 
-  console.log("\nPrice changes over time:");
-  console.log("------------------------");
+    // Check token balance
+    const balance = await testToken.balanceOf(signer.address);
+    console.log("Token balance:", ethers.formatEther(balance));
 
-  for (const interval of timeIntervals) {
-    await time.increase(interval - (await time.latest() % interval));
-    const currentPrice = await auction.getCurrentPrice(auctionId);
-    console.log(
-      `Time: ${interval / 60} minutes, Price: ${ethers.formatEther(currentPrice)} ETH`
+    // Approve auction contract
+    console.log("\nApproving auction contract...");
+    const approveTx = await testToken.approve(auctionAddress, tokenAmount);
+    await approveTx.wait();
+    console.log("Approval completed");
+
+    // Create auction
+    console.log("\nCreating auction...");
+    const tx = await auction.createAuction(
+      tokenAddress,
+      tokenAmount,
+      startPrice,
+      endPrice,
+      duration
     );
+    const receipt = await tx.wait();
+    console.log("Auction created! Transaction:", receipt?.hash);
+
+    // Get current auction ID
+    const auctionId = Number(await auction.getAuctionCount()) - 1;
+    console.log("Auction ID:", auctionId);
+
+    return { auctionId, testToken, auction };
+  } catch (error) {
+    console.error("Error in createAuction:", error);
+    throw error;
+  }
+}
+
+async function executeSwap(auctionId: number) {
+  try {
+    const { auction: auctionAddress } = await getDeployedAddresses();
+    const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
+    
+    const [signer] = await ethers.getSigners();
+    console.log("Buyer address:", signer.address);
+
+    // Get current price
+    const currentPrice = await auction.getCurrentPrice(auctionId);
+    console.log("\nCurrent price:", ethers.formatEther(currentPrice), "ETH");
+
+    // Execute swap with ETH payment
+    console.log("\nExecuting swap...");
+    const tx = await auction.executeSwap(auctionId, {
+      value: currentPrice
+    });
+    const receipt = await tx.wait();
+    console.log("Swap executed! Transaction:", receipt?.hash);
+  } catch (error) {
+    console.error("Error in executeSwap:", error);
+    throw error;
+  }
+}
+
+async function checkPrice(auctionId: number) {
+  try {
+    const { auction: auctionAddress } = await getDeployedAddresses();
+    const auction = await ethers.getContractAt("ReverseDutchAuctionSwap", auctionAddress);
+
+    const currentPrice = await auction.getCurrentPrice(auctionId);
+    console.log("\nCurrent auction price:", ethers.formatEther(currentPrice), "ETH");
+    return currentPrice;
+  } catch (error) {
+    console.error("Error in checkPrice:", error);
+    throw error;
   }
 }
 
 async function main() {
   try {
-    // Run auction simulation
-    await simulateAuction();
+    console.log("Starting auction process...");
     
-    // Run price interval checks
-    await checkPriceIntervals();
-    
-    console.log("\n=== All simulations completed successfully ===");
+    // Create auction
+    const { auctionId } = await createAuction();
+
+    // Wait for some time to let price decrease
+    console.log("\nWaiting for price to decrease...");
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Check current price
+    await checkPrice(auctionId);
+
+    // Execute swap
+    console.log("\nExecuting swap...");
+    await executeSwap(auctionId);
+
   } catch (error) {
-    console.error("Error during simulation:", error);
+    console.error("Error in main:", error);
+    process.exitCode = 1;
   }
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
+if (require.main === module) {
+  main().catch((error) => {
     console.error(error);
-    process.exit(1);
+    process.exitCode = 1;
   });
+}
